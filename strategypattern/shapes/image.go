@@ -1,30 +1,18 @@
-package main
+package shapes
 
 import (
-	"flag"
+	"../strategy"
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
-	"log"
-	"os"
+	"io"
 )
 
-type PrintStrategy interface {
-	Print() error
-}
-
-type TextSquare struct {
-}
-
 type ImageSquare struct {
-	DestinationFilePath string
-}
-
-func (tx *TextSquare) Print() error {
-	fmt.Println("Square")
-	return nil
+	strategy.PrintOutput
 }
 
 func (im *ImageSquare) Print() error {
@@ -62,32 +50,14 @@ func (im *ImageSquare) Print() error {
 	})
 	squareImg := image.NewRGBA(square)
 	draw.Draw(bgImage, squareImg.Bounds(), &squareColor, origin, draw.Src)
-
-	w, err := os.Create(im.DestinationFilePath)
-	if err != nil {
-		return err
+	if im.Writer == nil {
+		return fmt.Errorf("No writer stored on ImageSquare")
 	}
-	defer w.Close()
-	if err = jpeg.Encode(w, bgImage, quality); err != nil {
+	if err := jpeg.Encode(im.Writer, bgImage, quality); err != nil {
 		return fmt.Errorf("Error saving the image to the file")
 	}
+	if im.LogWriter != nil {
+		io.Copy(im.LogWriter, bytes.NewReader([]byte("Image written in provided writer\n")))
+	}
 	return nil
-}
-
-func main() {
-	var output = flag.String("output", "console", "The output to use between 'console' and 'image' file ")
-	flag.Parse()
-	var activeStrategy PrintStrategy
-	switch *output {
-	case "console":
-		activeStrategy = &TextSquare{}
-	case "image":
-		activeStrategy = &ImageSquare{DestinationFilePath: "image.jpg"}
-	default:
-		activeStrategy = &TextSquare{}
-	}
-	err := activeStrategy.Print()
-	if err != nil {
-		log.Fatal(err)
-	}
 }
